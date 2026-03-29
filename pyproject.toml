@@ -4,13 +4,12 @@ build-backend = "hatchling.build"
 
 [project]
 name = "atomviz"
-version = "0.1.0"
+version = "0.2.0"
 description = "Crystal structure visualisation in SVG and HTML"
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.10"
 dependencies = [
-    "numpy>=1.24",
     "typer>=0.9",
     "rich>=13.0",
 ]

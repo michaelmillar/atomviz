@@ -2,53 +2,108 @@
   <img src="assets/atomviz.svg" width="80" height="80"/>
 </p>
 <h1 align="center">atomviz</h1>
-<p align="center">Crystal structure visualisation in SVG and HTML. No GPU, no desktop app, no fuss.</p>
+<p align="center">Deterministic crystal-to-SVG/HTML renderer. No GPU, no desktop app, no WebGL.</p>
+<p align="center">Parses CIF and POSCAR files and produces clean, semantic, CSS-stylable SVG for docs, papers, static sites, Jupyter exports, and CI pipelines.</p>
 
-## Quickstart
+## What it does
+
+```python
+from atomviz.parse_cif import parse_cif
+from atomviz.render_svg import render_unit_cell_svg
+
+cell = parse_cif("structure.cif")
+svg = render_unit_cell_svg(cell)
+```
+
+The SVG output has stable DOM structure with CSS classes and data attributes on every element, so you can style, annotate, and script it.
+
+```xml
+<circle class="atomviz-atom atom-Si" data-index="0" data-element="Si"
+        cx="250.0" cy="180.3" r="12.0" fill="#F0C8A0" opacity="0.92"/>
+```
+
+Override defaults with external CSS, target atoms by element, or select by index for annotation.
+
+## Install
+
+```bash
+pip install .
+```
+
+Zero compiled dependencies. Pure Python. Works anywhere Python runs.
+
+## Quick start
 
 ### CLI
 
 ```bash
-pip install .
-atomviz render --structure silicon --output cell.svg
+atomviz render structure.cif -o cell.svg
+
+atomviz render structure.cif --supercell 2x2x2 -o supercell.svg
+
+atomviz render silicon -o silicon.svg
+
+atomviz render structure.cif > output.svg
+
+atomviz batch structures/ -o rendered/
 ```
 
 ### Python
 
 ```python
-from atomviz.examples import silicon_diamond
-from atomviz.render_svg import render_unit_cell_svg
-
-cell = silicon_diamond()
-svg = render_unit_cell_svg(cell)
-
-with open("silicon.svg", "w") as f:
-    f.write(svg)
-```
-
-## Gallery
-
-*Screenshots coming soon.*
-
-## Supported Elements
-
-H, C, N, O, Si, Fe, Ti, Al, Ga, As, Cd, Te, Zn, S, Cu, In, Se, Pb, I, Br, Sn, Ge, B, Na, K, Ca, Mg, Li, F, Cl, P
-
-Each element has a default colour and atomic radius for visualisation.
-
-## Examples
-
-Three built-in crystal structures are provided for quick demos.
-
-- **Silicon diamond** (8 atoms in a cubic cell)
-- **GaAs zincblende** (8 atoms)
-- **NaCl rocksalt** (8 atoms)
-
-```python
-from atomviz.examples import silicon_diamond, gaas_zincblende, nacl_rocksalt
+from atomviz.parse_cif import parse_cif
+from atomviz.parse_poscar import parse_poscar
+from atomviz.render_svg import Style, render_unit_cell_svg
 from atomviz.render_html import render_interactive
 
-html = render_interactive(silicon_diamond())
-with open("silicon_interactive.html", "w") as f:
-    f.write(html)
+cell = parse_cif("quartz.cif")
+
+svg = render_unit_cell_svg(cell)
+
+supercell = cell.supercell(2, 2, 1)
+svg = render_unit_cell_svg(supercell)
+
+style = Style(show_labels=False, depth_fade=True, background="#1a1a2e")
+svg = render_unit_cell_svg(cell, style=style)
+
+html = render_interactive(cell)
 ```
+
+## Supported formats
+
+| Format | Extensions | Notes |
+|--------|-----------|-------|
+| CIF | `.cif` | Fractional coordinates, cell parameters, uncertainty notation |
+| POSCAR/CONTCAR | `.poscar`, `.vasp`, `POSCAR`, `CONTCAR` | VASP 5+ with element line, scale factors, selective dynamics |
+
+## Features
+
+**Semantic SVG** with CSS classes per element (`atom-Si`, `bond-Ga-As`), data attributes (`data-element`, `data-index`), and an embedded `<style>` block with overridable defaults
+
+**Depth cueing** modulates opacity by z-depth for 3D perception without WebGL
+
+**Covalent-radii bond detection** uses sum of covalent radii plus tolerance instead of a naive distance cutoff
+
+**Supercell generation** repeats the unit cell NxMxP along each lattice direction
+
+**Batch rendering** processes a directory of structure files in one command
+
+**Deterministic output** guarantees the same input produces byte-identical SVG every time
+
+**Style control** via the `Style` dataclass lets you toggle labels, bonds, lattice wireframe, depth fade, colours, and fonts
+
+## Built-in examples
+
+Three structures are included for quick testing.
+
+```bash
+atomviz render silicon -o silicon.svg
+atomviz render gaas -o gaas.svg
+atomviz render nacl -o nacl.svg
+```
+
+## Status
+
+51 tests passing.
+
+Not yet implemented: XYZ format, symmetry expansion from space groups, polyhedra, Miller plane overlays, perspective projection.

@@ -69,9 +69,24 @@ ELEMENT_RADII: dict[str, float] = {
 }
 
 
+COVALENT_RADII: dict[str, float] = {
+    "H": 0.31, "C": 0.76, "N": 0.71, "O": 0.66, "Si": 1.11,
+    "Fe": 1.32, "Ti": 1.60, "Al": 1.21, "Ga": 1.22, "As": 1.19,
+    "Cd": 1.44, "Te": 1.38, "Zn": 1.22, "S": 1.05, "Cu": 1.32,
+    "In": 1.42, "Se": 1.20, "Pb": 1.46, "I": 1.39, "Br": 1.20,
+    "Sn": 1.39, "Ge": 1.20, "B": 0.84, "Na": 1.66, "K": 2.03,
+    "Ca": 1.76, "Mg": 1.41, "Li": 1.28, "F": 0.57, "Cl": 1.02,
+    "P": 1.07,
+}
+
+
 def get_colour(element: str) -> str:
     return ELEMENT_COLOURS.get(element, "#808080")
 
 
 def get_radius(element: str) -> float:
     return ELEMENT_RADII.get(element, 1.0)
+
+
+def get_covalent_radius(element: str) -> float:
+    return COVALENT_RADII.get(element, 1.5)

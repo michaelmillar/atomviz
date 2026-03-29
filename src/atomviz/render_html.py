@@ -8,9 +8,8 @@ def render_interactive(
     cell: UnitCell,
     width: int = 500,
     height: int = 500,
-    bond_cutoff: float = 3.0,
 ) -> str:
-    initial_svg = render_unit_cell_svg(cell, theta=0.5, phi=0.5, width=width, height=height, bond_cutoff=bond_cutoff)
+    initial_svg = render_unit_cell_svg(cell, theta=0.5, phi=0.5, width=width, height=height)
 
     atoms_js = "[\n"
     for atom in cell.atoms:
@@ -79,8 +78,18 @@ const lattice = {lattice_js};
 const title = "{cell.title}";
 const W = {width};
 const H = {height};
-const bondCutoff = {bond_cutoff};
 const atomScale = 0.3;
+const minOpacity = 0.4;
+
+const COVALENT_RADII = {{
+    H: 0.31, C: 0.76, N: 0.71, O: 0.66, Si: 1.11,
+    Fe: 1.32, Ti: 1.60, Al: 1.21, Ga: 1.22, As: 1.19,
+    Cd: 1.44, Te: 1.38, Zn: 1.22, S: 1.05, Cu: 1.32,
+    In: 1.42, Se: 1.20, Pb: 1.46, I: 1.39, Br: 1.20,
+    Sn: 1.39, Ge: 1.20, B: 0.84, Na: 1.66, K: 2.03,
+    Ca: 1.76, Mg: 1.41, Li: 1.28, F: 0.57, Cl: 1.02,
+    P: 1.07
+}};
 
 const LATTICE_EDGES = [
     [0,1],[0,2],[0,3],[1,4],[1,5],[2,4],[2,6],[3,5],[3,6],[4,7],[5,7],[6,7]
@@ -127,6 +136,17 @@ function dist(p1, p2) {{
     return Math.sqrt((p1[0]-p2[0])**2 + (p1[1]-p2[1])**2 + (p1[2]-p2[2])**2);
 }}
 
+function depthOpacity(depth, minD, maxD) {{
+    const span = maxD - minD;
+    if (span < 1e-6) return 1.0;
+    const t = (depth - minD) / span;
+    return minOpacity + (1.0 - minOpacity) * (1.0 - t);
+}}
+
+function getCovalentRadius(el) {{
+    return COVALENT_RADII[el] || 1.5;
+}}
+
 function renderSVG(theta, phi) {{
     const rot = rotationMatrix(theta, phi);
     const cartPositions = atoms.map(a => toCartesian(a.position));
@@ -158,41 +178,58 @@ function renderSVG(theta, phi) {{
         return [cx + (px-midX)*scale, cy + (py-midY)*scale];
     }}
 
-    let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${{W}}" height="${{H}}" viewBox="0 0 ${{W}} ${{H}}">`;
-    svg += `<rect width="${{W}}" height="${{H}}" fill="white"/>`;
-    svg += `<text x="${{W/2}}" y="20" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#333">${{title}}</text>`;
+    const atomDepths = projected.filter(p => p.index < nAtoms).map(p => p.depth);
+    const minD = Math.min(...atomDepths);
+    const maxD = Math.max(...atomDepths);
 
-    for (const [i,j] of LATTICE_EDGES) {{
+    let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${{W}}" height="${{H}}" viewBox="0 0 ${{W}} ${{H}}" class="atomviz" data-structure="${{title}}">`;
+    svg += `<style>
+.atomviz-bg {{ fill: white; }}
+.atomviz-title {{ font-family: sans-serif; font-size: 14px; fill: #333; }}
+.atomviz-edge {{ stroke: #999; stroke-width: 1; stroke-dasharray: 4 3; fill: none; }}
+.atomviz-bond {{ stroke: #666; stroke-width: 2; stroke-linecap: round; }}
+.atomviz-atom {{ stroke: #333; stroke-width: 0.5; }}
+.atomviz-label {{ font-family: sans-serif; font-size: 10px; fill: #555; }}
+</style>`;
+    svg += `<rect class="atomviz-bg" width="${{W}}" height="${{H}}"/>`;
+    svg += `<text class="atomviz-title" x="${{W/2}}" y="24" text-anchor="middle">${{title}}</text>`;
+
+    svg += '<g class="atomviz-lattice">';
+    for (const [ei, [i,j]] of LATTICE_EDGES.entries()) {{
         const p1 = projected[nAtoms+i], p2 = projected[nAtoms+j];
         const [x1,y1] = scr(p1.x, p1.y);
         const [x2,y2] = scr(p2.x, p2.y);
-        svg += `<line x1="${{x1.toFixed(1)}}" y1="${{y1.toFixed(1)}}" x2="${{x2.toFixed(1)}}" y2="${{y2.toFixed(1)}}" stroke="#999" stroke-width="1" stroke-dasharray="4,3"/>`;
+        svg += `<line class="atomviz-edge" data-edge="${{ei}}" x1="${{x1.toFixed(1)}}" y1="${{y1.toFixed(1)}}" x2="${{x2.toFixed(1)}}" y2="${{y2.toFixed(1)}}"/>`;
     }}
+    svg += '</g>';
 
     const drawOrder = [];
 
     for (let i = 0; i < nAtoms; i++) {{
         for (let j = i+1; j < nAtoms; j++) {{
             const d = dist(cartPositions[i], cartPositions[j]);
-            if (d > 0.5 && d < bondCutoff) {{
+            const ri = getCovalentRadius(atoms[i].element);
+            const rj = getCovalentRadius(atoms[j].element);
+            if (d > 0.5 && d < ri + rj + 0.45) {{
                 const p1 = projected[i], p2 = projected[j];
                 const [x1,y1] = scr(p1.x, p1.y);
                 const [x2,y2] = scr(p2.x, p2.y);
                 const avgD = (p1.depth+p2.depth)/2;
-                drawOrder.push([avgD, `<line x1="${{x1.toFixed(1)}}" y1="${{y1.toFixed(1)}}" x2="${{x2.toFixed(1)}}" y2="${{y2.toFixed(1)}}" stroke="#666" stroke-width="2" stroke-linecap="round"/>`]);
+                const op = depthOpacity(avgD, minD, maxD);
+                drawOrder.push([avgD, `<line class="atomviz-bond bond-${{atoms[i].element}}-${{atoms[j].element}}" data-from="${{i}}" data-to="${{j}}" x1="${{x1.toFixed(1)}}" y1="${{y1.toFixed(1)}}" x2="${{x2.toFixed(1)}}" y2="${{y2.toFixed(1)}}" opacity="${{op.toFixed(2)}}"/>`]);
             }}
         }}
     }}
 
-    const atomsSorted = projected.filter(p => p.index < nAtoms).sort((a,b) => a.depth - b.depth);
-    for (const p of atomsSorted) {{
+    for (const p of projected.filter(p => p.index < nAtoms)) {{
         const atom = atoms[p.index];
         const [sx, sy] = scr(p.x, p.y);
         let r = atom.radius * atomScale * scale * 0.15;
         r = Math.max(r, 4);
         r = Math.min(r, 25);
-        drawOrder.push([p.depth, `<circle cx="${{sx.toFixed(1)}}" cy="${{sy.toFixed(1)}}" r="${{r.toFixed(1)}}" fill="${{atom.colour}}" stroke="#333" stroke-width="0.5"/>`]);
-        drawOrder.push([p.depth+0.001, `<text x="${{sx.toFixed(1)}}" y="${{(sy+r+12).toFixed(1)}}" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#555">${{atom.element}}</text>`]);
+        const op = depthOpacity(p.depth, minD, maxD);
+        drawOrder.push([p.depth, `<circle class="atomviz-atom atom-${{atom.element}}" data-index="${{p.index}}" data-element="${{atom.element}}" cx="${{sx.toFixed(1)}}" cy="${{sy.toFixed(1)}}" r="${{r.toFixed(1)}}" fill="${{atom.colour}}" opacity="${{op.toFixed(2)}}"/>`]);
+        drawOrder.push([p.depth+0.001, `<text class="atomviz-label label-${{atom.element}}" data-index="${{p.index}}" x="${{sx.toFixed(1)}}" y="${{(sy+r+12).toFixed(1)}}" text-anchor="middle" opacity="${{op.toFixed(2)}}">${{atom.element}}</text>`]);
     }}
 
     drawOrder.sort((a,b) => a[0] - b[0]);
