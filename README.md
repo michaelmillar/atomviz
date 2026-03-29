@@ -5,6 +5,8 @@
 <p align="center">Deterministic crystal-to-SVG/HTML renderer. No GPU, no desktop app, no WebGL.</p>
 <p align="center">Parses CIF and POSCAR files and produces clean, semantic, CSS-stylable SVG for docs, papers, static sites, Jupyter exports, and CI pipelines.</p>
 
+https://github.com/user-attachments/assets/2ae44597-bba9-4979-9d92-f83879126e4c
+
 ## What it does
 
 ```python
