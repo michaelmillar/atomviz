@@ -1,0 +1,35 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "atomviz"
+version = "0.1.0"
+description = "Crystal structure visualisation in SVG and HTML"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.24",
+    "typer>=0.9",
+    "rich>=13.0",
+]
+
+[project.scripts]
+atomviz = "atomviz.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/atomviz"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/atomviz/render_html.py" = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
